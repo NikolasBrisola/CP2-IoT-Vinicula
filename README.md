@@ -170,7 +170,7 @@ Isso cria o banco `vinicola_iot` com as tabelas `telemetria` e `clima_externo`, 
    - Nó HTTP Request: substitua `SUA_API_KEY` pela chave do OpenWeather
 5. Deploy
 
-Dashboard disponível em: `http://localhost:1880/ui`
+Dashboard disponível em: `http://localhost:1880/dashboard/`
 
 ---
 
@@ -232,4 +232,11 @@ MIT
 
 ## Autor
 
-Desenvolvido como Checkpoint Acadêmico — FIAP
+Felipe Ferrete Soares Lemes 
+RM562999
+
+Gustavo Bosak Santos
+RM566315
+
+Nikolas Henrique de Souza Lemes Brisola
+RM564371
