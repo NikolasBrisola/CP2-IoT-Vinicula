@@ -7,32 +7,10 @@
         "info": "Fluxo principal: MQTT → MySQL + Dashboard + OpenWeather"
     },
     {
-        "id": "mqtt_broker_config",
-        "type": "mqtt-broker",
-        "name": "HiveMQ Broker",
-        "broker": "broker.hivemq.com",
-        "port": "1883",
-        "clientid": "nodered_vinicola",
-        "autoConnect": true,
-        "usetls": false,
-        "protocolVersion": "4",
-        "keepalive": "60",
-        "cleansession": true
-    },
-    {
-        "id": "mysql_config",
-        "type": "MySQLdatabase",
-        "name": "vinicola_iot",
-        "host": "127.0.0.1",
-        "port": "3306",
-        "db": "vinicola_iot",
-        "tz": "America/Sao_Paulo"
-    },
-    {
         "id": "mqtt_in_telemetria",
         "type": "mqtt in",
         "z": "flow_vinicola",
-        "name": "📡 MQTT Telemetria",
+        "name": "MQTT Telemetria",
         "topic": "vinicola/cp1/telemetria",
         "qos": "1",
         "datatype": "json",
@@ -43,7 +21,11 @@
         "inputs": 0,
         "x": 130,
         "y": 200,
-        "wires": [["parse_json"]]
+        "wires": [
+            [
+                "parse_json"
+            ]
+        ]
     },
     {
         "id": "parse_json",
@@ -55,28 +37,46 @@
         "pretty": false,
         "x": 340,
         "y": 200,
-        "wires": [["insert_mysql", "gauge_temp", "gauge_umid", "gauge_luz", "chart_temp", "check_alerta"]]
+        "wires": [
+            [
+                "insert_mysql",
+                "gauge_temp",
+                "gauge_umid",
+                "gauge_luz",
+                "chart_temp_fn",
+                "chart_umid_fn",
+                "check_alerta"
+            ]
+        ]
     },
     {
         "id": "insert_mysql",
         "type": "function",
         "z": "flow_vinicola",
-        "name": "🗄️ Preparar INSERT",
-        "func": "// Monta a query parametrizada para evitar SQL injection\nconst d = msg.payload;\n\nmsg.topic = `INSERT INTO telemetria \n  (dispositivo, temperatura, umidade, luminosidade, alerta, msg_id, uptime_s) \n  VALUES (?, ?, ?, ?, ?, ?, ?)`;\n\nmsg.payload = [\n    d.dispositivo   || 'esp32_vinicola_cp1',\n    d.temperatura    || 0,\n    d.umidade        || 0,\n    d.luminosidade   || 0,\n    d.alerta         || 'ok',\n    d.msg_id         || 0,\n    d.uptime_s       || 0\n];\n\nreturn msg;",
+        "name": "Preparar INSERT",
+        "func": "const d = msg.payload;\nmsg.topic = 'INSERT INTO telemetria (dispositivo, temperatura, umidade, luminosidade, alerta, msg_id, uptime_s) VALUES (?, ?, ?, ?, ?, ?, ?)';\nmsg.payload = [\n    d.dispositivo  || 'esp32_vinicola_cp1',\n    d.temperatura  || 0,\n    d.umidade      || 0,\n    d.luminosidade || 0,\n    d.alerta       || 'ok',\n    d.msg_id       || 0,\n    d.uptime_s     || 0\n];\nreturn msg;",
         "outputs": 1,
         "x": 570,
-        "y": 140,
-        "wires": [["mysql_node"]]
+        "y": 120,
+        "wires": [
+            [
+                "mysql_node"
+            ]
+        ]
     },
     {
         "id": "mysql_node",
         "type": "mysql",
         "z": "flow_vinicola",
-        "name": "MySQL INSERT",
         "mydb": "mysql_config",
+        "name": "MySQL INSERT",
         "x": 780,
-        "y": 140,
-        "wires": [["debug_mysql"]]
+        "y": 120,
+        "wires": [
+            [
+                "debug_mysql"
+            ]
+        ]
     },
     {
         "id": "debug_mysql",
@@ -85,270 +85,656 @@
         "name": "Debug MySQL",
         "active": true,
         "tosidebar": true,
+        "console": false,
+        "tostatus": false,
         "complete": "true",
-        "x": 970,
-        "y": 140,
+        "targetType": "full",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 980,
+        "y": 120,
         "wires": []
     },
     {
         "id": "gauge_temp",
         "type": "function",
         "z": "flow_vinicola",
-        "name": "🌡️ Extrair Temperatura",
-        "func": "msg.payload = msg.payload.temperatura;\nmsg.topic = 'Temperatura (°C)';\nreturn msg;",
+        "name": "Extrair Temperatura",
+        "func": "msg.payload = msg.payload.temperatura;\nreturn msg;",
         "outputs": 1,
-        "x": 590,
-        "y": 240,
-        "wires": [["ui_gauge_temp"]]
+        "x": 580,
+        "y": 200,
+        "wires": [
+            [
+                "ui_gauge_temp"
+            ]
+        ]
     },
     {
         "id": "gauge_umid",
         "type": "function",
         "z": "flow_vinicola",
-        "name": "💧 Extrair Umidade",
-        "func": "msg.payload = msg.payload.umidade;\nmsg.topic = 'Umidade (%)';\nreturn msg;",
+        "name": "Extrair Umidade",
+        "func": "msg.payload = msg.payload.umidade;\nreturn msg;",
         "outputs": 1,
-        "x": 590,
-        "y": 300,
-        "wires": [["ui_gauge_umid"]]
+        "x": 580,
+        "y": 260,
+        "wires": [
+            [
+                "ui_gauge_umid"
+            ]
+        ]
     },
     {
         "id": "gauge_luz",
         "type": "function",
         "z": "flow_vinicola",
-        "name": "☀️ Extrair Luminosidade",
-        "func": "msg.payload = msg.payload.luminosidade;\nmsg.topic = 'Luminosidade';\nreturn msg;",
-        "outputs": 1,
-        "x": 600,
-        "y": 360,
-        "wires": [["ui_gauge_luz"]]
-    },
-    {
-        "id": "chart_temp",
-        "type": "function",
-        "z": "flow_vinicola",
-        "name": "📈 Dados p/ Chart",
-        "func": "// Envia objeto com múltiplas séries para o chart\nmsg.payload = [\n  { \"topic\": \"Temperatura\", \"payload\": msg.payload.temperatura },\n  { \"topic\": \"Umidade\",     \"payload\": msg.payload.umidade }\n];\nreturn msg;",
+        "name": "Extrair Luminosidade",
+        "func": "msg.payload = msg.payload.luminosidade;\nreturn msg;",
         "outputs": 1,
         "x": 580,
-        "y": 420,
-        "wires": [["ui_chart_historico"]]
+        "y": 320,
+        "wires": [
+            [
+                "ui_gauge_luz"
+            ]
+        ]
+    },
+    {
+        "id": "chart_temp_fn",
+        "type": "function",
+        "z": "flow_vinicola",
+        "name": "Temperatura p/ Chart",
+        "func": "msg.topic = 'Temperatura';\nmsg.payload = msg.payload.temperatura;\nreturn msg;",
+        "outputs": 1,
+        "x": 580,
+        "y": 380,
+        "wires": [
+            [
+                "ui_chart_historico"
+            ]
+        ]
+    },
+    {
+        "id": "chart_umid_fn",
+        "type": "function",
+        "z": "flow_vinicola",
+        "name": "Umidade p/ Chart",
+        "func": "msg.topic = 'Umidade';\nmsg.payload = msg.payload.umidade;\nreturn msg;",
+        "outputs": 1,
+        "x": 580,
+        "y": 440,
+        "wires": [
+            [
+                "ui_chart_historico"
+            ]
+        ]
     },
     {
         "id": "check_alerta",
         "type": "switch",
         "z": "flow_vinicola",
-        "name": "⚠️ Tem Alerta?",
+        "name": "Tem Alerta?",
         "property": "payload.alerta",
         "rules": [
-            { "t": "neq", "v": "ok", "vt": "str" }
+            {
+                "t": "neq",
+                "v": "ok",
+                "vt": "str"
+            }
         ],
+        "outputs": 1,
         "x": 570,
-        "y": 480,
-        "wires": [["notificar_alerta"]]
+        "y": 500,
+        "wires": [
+            [
+                "notificar_alerta"
+            ]
+        ]
     },
     {
         "id": "notificar_alerta",
         "type": "function",
         "z": "flow_vinicola",
-        "name": "🚨 Formatar Alerta",
-        "func": "const d = msg.payload;\nmsg.payload = `⚠️ ALERTA VINÍCOLA\\n` +\n  `Dispositivo: ${d.dispositivo}\\n` +\n  `Tipo: ${d.alerta}\\n` +\n  `Temp: ${d.temperatura}°C | Umid: ${d.umidade}% | Luz: ${d.luminosidade}`;\nreturn msg;",
+        "name": "Formatar Alerta",
+        "func": "const d = msg.payload;\nmsg.payload = `ALERTA: ${d.alerta} | Temp: ${d.temperatura}°C | Umid: ${d.umidade}% | Luz: ${d.luminosidade}`;\nreturn msg;",
         "outputs": 1,
-        "x": 800,
-        "y": 480,
-        "wires": [["ui_notificacao"]]
+        "x": 780,
+        "y": 500,
+        "wires": [
+            [
+                "ui_notificacao"
+            ]
+        ]
     },
     {
         "id": "ui_notificacao",
-        "type": "ui_toast",
+        "type": "ui-notification",
         "z": "flow_vinicola",
-        "name": "Toast Alerta",
+        "ui": "ui_base",
         "position": "top right",
+        "colorDefault": true,
+        "color": "#ff0000",
         "displayTime": "5",
-        "topic": "Alerta Vinícola",
-        "outputs": 0,
-        "x": 1010,
-        "y": 480,
-        "wires": []
+        "showCountdown": true,
+        "outputs": 1,
+        "allowDismiss": true,
+        "raw": false,
+        "name": "Alerta Vinícola",
+        "x": 990,
+        "y": 500,
+        "wires": [
+            []
+        ]
     },
     {
         "id": "inject_openweather",
         "type": "inject",
         "z": "flow_vinicola",
-        "name": "⏱️ A cada 10 min",
+        "name": "A cada 10 min",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
         "repeat": "600",
         "crontab": "",
         "once": true,
         "onceDelay": "5",
         "topic": "",
-        "x": 150,
-        "y": 600,
-        "wires": [["http_openweather"]]
+        "payload": "",
+        "payloadType": "str",
+        "x": 140,
+        "y": 620,
+        "wires": [
+            [
+                "http_openweather"
+            ]
+        ]
     },
     {
         "id": "http_openweather",
         "type": "http request",
         "z": "flow_vinicola",
-        "name": "🌤️ OpenWeather API",
+        "name": "OpenWeather API",
         "method": "GET",
         "ret": "obj",
         "paytoqs": "ignore",
-        "url": "https://api.openweathermap.org/data/2.5/weather?q=Sao+Paulo,BR&appid=SUA_API_KEY&units=metric&lang=pt_br",
-        "x": 400,
-        "y": 600,
-        "wires": [["parse_weather"]]
+        "url": "https://api.openweathermap.org/data/2.5/weather?q=Sao+Paulo,BR&appid=eaf73f155d8c5eb66e49073923521337&units=metric&lang=pt_br",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 360,
+        "y": 620,
+        "wires": [
+            [
+                "parse_weather",
+                "4edc405b547d01db"
+            ]
+        ]
     },
     {
         "id": "parse_weather",
         "type": "function",
         "z": "flow_vinicola",
-        "name": "📦 Parse Weather",
-        "func": "// Extrai dados relevantes da resposta do OpenWeather\nconst w = msg.payload;\n\nif (!w || !w.main) {\n    node.warn('Resposta inválida do OpenWeather');\n    return null;\n}\n\nmsg.weather = {\n    cidade:      w.name || 'Sao Paulo',\n    temp_ext:    w.main.temp,\n    umidade_ext: w.main.humidity,\n    descricao:   w.weather[0].description || ''\n};\n\n// Prepara INSERT no MySQL\nmsg.topic = `INSERT INTO clima_externo \n  (cidade, temp_externa, umidade_ext, descricao) \n  VALUES (?, ?, ?, ?)`;\n\nmsg.payload = [\n    msg.weather.cidade,\n    msg.weather.temp_ext,\n    msg.weather.umidade_ext,\n    msg.weather.descricao\n];\n\nreturn msg;",
+        "name": "Parse Weather",
+        "func": "const w = msg.payload;\nif (!w || !w.main) {\n    node.warn('Resposta inválida do OpenWeather');\n    return null;\n}\nmsg.weather = {\n    cidade:      w.name || 'Sao Paulo',\n    temp_ext:    w.main.temp,\n    umidade_ext: w.main.humidity,\n    descricao:   w.weather[0].description || ''\n};\nmsg.topic = 'INSERT INTO clima_externo (cidade, temp_externa, umidade_ext, descricao) VALUES (?, ?, ?, ?)';\nmsg.payload = [\n    msg.weather.cidade,\n    msg.weather.temp_ext,\n    msg.weather.umidade_ext,\n    msg.weather.descricao\n];\nreturn msg;",
         "outputs": 1,
-        "x": 620,
-        "y": 600,
-        "wires": [["mysql_weather", "ui_weather_display"]]
+        "x": 580,
+        "y": 620,
+        "wires": [
+            [
+                "mysql_weather",
+                "ui_weather_display",
+                "4dc55c517fc8f5b0"
+            ]
+        ]
     },
     {
         "id": "mysql_weather",
         "type": "mysql",
         "z": "flow_vinicola",
-        "name": "MySQL Weather",
         "mydb": "mysql_config",
-        "x": 830,
-        "y": 570,
-        "wires": [[]]
+        "name": "MySQL Weather",
+        "x": 790,
+        "y": 590,
+        "wires": [
+            []
+        ]
     },
     {
         "id": "ui_weather_display",
         "type": "function",
         "z": "flow_vinicola",
-        "name": "🌡️ Weather p/ Dashboard",
-        "func": "const w = msg.weather;\nmsg.payload = `${w.cidade}: ${w.temp_ext}°C | ${w.umidade_ext}% | ${w.descricao}`;\nreturn msg;",
+        "name": "Weather p/ Dashboard",
+        "func": "const w = msg.weather;\nmsg.payload = `${w.cidade}: ${w.temp_ext}°C | Umidade: ${w.umidade_ext}% | ${w.descricao}`;\nreturn msg;",
         "outputs": 1,
-        "x": 850,
-        "y": 640,
-        "wires": [["ui_text_weather"]]
+        "x": 800,
+        "y": 650,
+        "wires": [
+            [
+                "ui_text_weather",
+                "e30c0d54db173f86"
+            ]
+        ]
     },
     {
         "id": "ui_gauge_temp",
-        "type": "ui_gauge",
+        "type": "ui-gauge",
         "z": "flow_vinicola",
         "name": "Gauge Temperatura",
-        "group": "dashboard_group",
+        "group": "ui_group_sensores",
         "order": 1,
+        "value": "payload",
+        "valueType": "msg",
         "width": 4,
         "height": 4,
-        "gtype": "gage",
-        "title": "Temperatura °C",
-        "label": "°C",
-        "format": "{{value}}",
+        "gtype": "gauge-half",
+        "gstyle": "needle",
+        "title": "Temperatura",
+        "alwaysShowTitle": false,
+        "units": "",
+        "icon": "",
+        "prefix": "",
+        "suffix": "",
+        "segments": [
+            {
+                "from": "0",
+                "color": "#3498db",
+                "text": "",
+                "textType": "label"
+            },
+            {
+                "from": "12",
+                "color": "#2ecc71",
+                "text": "",
+                "textType": "label"
+            },
+            {
+                "from": "20",
+                "color": "#e74c3c",
+                "text": "",
+                "textType": "label"
+            }
+        ],
         "min": 0,
         "max": 40,
-        "colors": ["#3498db", "#2ecc71", "#e74c3c"],
-        "seg1": "12",
-        "seg2": "20",
-        "x": 830,
-        "y": 240,
-        "wires": []
+        "sizeThickness": "",
+        "sizeGap": "",
+        "sizeKeyThickness": "",
+        "className": "",
+        "x": 820,
+        "y": 200,
+        "wires": [
+            []
+        ]
     },
     {
         "id": "ui_gauge_umid",
-        "type": "ui_gauge",
+        "type": "ui-gauge",
         "z": "flow_vinicola",
         "name": "Gauge Umidade",
-        "group": "dashboard_group",
+        "group": "ui_group_sensores",
         "order": 2,
+        "value": "payload",
+        "valueType": "msg",
         "width": 4,
         "height": 4,
-        "gtype": "gage",
-        "title": "Umidade %",
-        "label": "%",
-        "format": "{{value}}",
+        "gtype": "gauge-half",
+        "gstyle": "needle",
+        "title": "Umidade",
+        "alwaysShowTitle": false,
+        "units": "",
+        "icon": "",
+        "prefix": "",
+        "suffix": "",
+        "segments": [
+            {
+                "from": "0",
+                "color": "#e74c3c",
+                "text": "",
+                "textType": "label"
+            },
+            {
+                "from": "55",
+                "color": "#2ecc71",
+                "text": "",
+                "textType": "label"
+            },
+            {
+                "from": "75",
+                "color": "#3498db",
+                "text": "",
+                "textType": "label"
+            }
+        ],
         "min": 0,
         "max": 100,
-        "colors": ["#e74c3c", "#2ecc71", "#3498db"],
-        "seg1": "55",
-        "seg2": "75",
-        "x": 810,
-        "y": 300,
-        "wires": []
+        "sizeThickness": "",
+        "sizeGap": "",
+        "sizeKeyThickness": "",
+        "className": "",
+        "x": 820,
+        "y": 260,
+        "wires": [
+            []
+        ]
     },
     {
         "id": "ui_gauge_luz",
-        "type": "ui_gauge",
+        "type": "ui-gauge",
         "z": "flow_vinicola",
         "name": "Gauge Luminosidade",
-        "group": "dashboard_group",
+        "group": "ui_group_sensores",
         "order": 3,
+        "value": "payload",
+        "valueType": "msg",
         "width": 4,
         "height": 4,
-        "gtype": "gage",
+        "gtype": "gauge-half",
+        "gstyle": "needle",
         "title": "Luminosidade",
-        "label": "lux",
-        "format": "{{value}}",
+        "alwaysShowTitle": false,
+        "units": "",
+        "icon": "",
+        "prefix": "",
+        "suffix": "",
+        "segments": [
+            {
+                "from": "0",
+                "color": "#2ecc71",
+                "text": "",
+                "textType": "label"
+            },
+            {
+                "from": "300",
+                "color": "#f39c12",
+                "text": "",
+                "textType": "label"
+            },
+            {
+                "from": "500",
+                "color": "#e74c3c",
+                "text": "",
+                "textType": "label"
+            }
+        ],
         "min": 0,
         "max": 4095,
-        "colors": ["#2ecc71", "#f39c12", "#e74c3c"],
-        "seg1": "300",
-        "seg2": "500",
-        "x": 830,
-        "y": 360,
-        "wires": []
+        "sizeThickness": "",
+        "sizeGap": "",
+        "sizeKeyThickness": "",
+        "className": "",
+        "x": 820,
+        "y": 320,
+        "wires": [
+            []
+        ]
     },
     {
         "id": "ui_chart_historico",
-        "type": "ui_chart",
+        "type": "ui-chart",
         "z": "flow_vinicola",
+        "group": "ui_group_historico",
         "name": "Chart Histórico",
-        "group": "dashboard_group",
-        "order": 4,
+        "label": "Histórico Temperatura / Umidade",
+        "order": 1,
+        "chartType": "line",
+        "category": "topic",
+        "categoryType": "msg",
+        "xAxisLabel": "",
+        "xAxisProperty": "",
+        "xAxisPropertyType": "timestamp",
+        "xAxisType": "time",
+        "xAxisFormat": "",
+        "xAxisFormatType": "auto",
+        "xmin": "",
+        "xmax": "",
+        "yAxisLabel": "",
+        "yAxisProperty": "",
+        "yAxisPropertyType": "property",
+        "ymin": "",
+        "ymax": "",
+        "bins": "",
+        "stackSeries": false,
+        "pointRadius": "",
+        "showLegend": true,
+        "removeOlder": 1,
+        "removeOlderUnit": "3600",
+        "removeOlderPoints": "",
+        "colors": [
+            "#e74c3c",
+            "#3498db",
+            "#2ecc71",
+            "#000000",
+            "#000000",
+            "#000000",
+            "#000000",
+            "#000000",
+            "#000000"
+        ],
+        "textColor": [
+            "#666666"
+        ],
+        "textColorDefault": true,
+        "gridColor": [
+            "#e5e5e5"
+        ],
+        "gridColorDefault": true,
         "width": 12,
         "height": 6,
-        "label": "Histórico Temp/Umidade",
-        "chartType": "line",
-        "legend": "true",
-        "xformat": "HH:mm:ss",
-        "interpolate": "linear",
-        "nodata": "Aguardando dados...",
-        "dot": false,
-        "ymin": "0",
-        "ymax": "100",
-        "removeOlder": "1",
-        "removeOlderUnit": "3600",
+        "className": "",
+        "interpolation": "linear",
         "x": 820,
-        "y": 420,
-        "wires": [[]]
+        "y": 410,
+        "wires": [
+            []
+        ]
     },
     {
         "id": "ui_text_weather",
-        "type": "ui_text",
+        "type": "ui-text",
         "z": "flow_vinicola",
-        "name": "Clima Externo",
-        "group": "dashboard_group",
-        "order": 5,
+        "group": "ui_group_clima",
+        "order": 1,
         "width": 12,
         "height": 1,
-        "label": "Clima Externo",
-        "format": "{{msg.payload}}",
-        "x": 1060,
-        "y": 640,
+        "name": "Clima Externo",
+        "x": 1010,
+        "y": 650,
         "wires": []
     },
     {
-        "id": "dashboard_group",
-        "type": "ui_group",
-        "name": "Monitoramento Vinícola",
-        "tab": "dashboard_tab",
-        "order": 1,
-        "disp": true,
-        "width": "12"
+        "id": "4edc405b547d01db",
+        "type": "debug",
+        "z": "flow_vinicola",
+        "name": "debug 1",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 580,
+        "y": 720,
+        "wires": []
     },
     {
-        "id": "dashboard_tab",
-        "type": "ui_tab",
-        "name": "Vinícola CP1",
-        "icon": "fa-wine-glass",
-        "order": 1
+        "id": "4dc55c517fc8f5b0",
+        "type": "debug",
+        "z": "flow_vinicola",
+        "name": "debug 2",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 780,
+        "y": 720,
+        "wires": []
+    },
+    {
+        "id": "e30c0d54db173f86",
+        "type": "debug",
+        "z": "flow_vinicola",
+        "name": "debug 3",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 980,
+        "y": 720,
+        "wires": []
+    },
+    {
+        "id": "mqtt_broker_config",
+        "type": "mqtt-broker",
+        "name": "HiveMQ Broker",
+        "broker": "broker.hivemq.com",
+        "port": "1883",
+        "clientid": "nodered_vinicola_cp1",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": "4",
+        "keepalive": "60",
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthQos": "0",
+        "willQos": "0"
+    },
+    {
+        "id": "mysql_config",
+        "type": "MySQLdatabase",
+        "name": "vinicola_iot",
+        "host": "127.0.0.1",
+        "port": "3306",
+        "db": "vinicola_iot",
+        "tz": "America/Sao_Paulo",
+        "charset": ""
+    },
+    {
+        "id": "ui_base",
+        "type": "ui-base",
+        "name": "Vinícola Dashboard",
+        "path": "/dashboard",
+        "appIcon": "",
+        "includeClientData": true,
+        "acceptsClientConfig": [],
+        "showPathInSidebar": false,
+        "headerContent": "page",
+        "titleBarStyle": "default",
+        "showReconnectNotification": true,
+        "notificationDisplayTime": 5,
+        "showDisconnectNotification": true,
+        "allowInstall": true
+    },
+    {
+        "id": "ui_group_sensores",
+        "type": "ui-group",
+        "name": "Sensores",
+        "page": "ui_page",
+        "width": "12",
+        "height": "1",
+        "order": 1,
+        "showTitle": true,
+        "className": "",
+        "visible": "true",
+        "disabled": "false",
+        "groupType": "default"
+    },
+    {
+        "id": "ui_group_historico",
+        "type": "ui-group",
+        "name": "Histórico",
+        "page": "ui_page",
+        "width": "12",
+        "height": "1",
+        "order": 2,
+        "showTitle": true,
+        "className": "",
+        "visible": "true",
+        "disabled": "false",
+        "groupType": "default"
+    },
+    {
+        "id": "ui_group_clima",
+        "type": "ui-group",
+        "name": "Clima Externo",
+        "page": "ui_page",
+        "width": "12",
+        "height": "1",
+        "order": 3,
+        "showTitle": true,
+        "className": ""
+    },
+    {
+        "id": "ui_page",
+        "type": "ui-page",
+        "name": "Monitoramento",
+        "ui": "ui_base",
+        "path": "/",
+        "icon": "home",
+        "layout": "grid",
+        "theme": "ui_theme",
+        "breakpoints": [
+            {
+                "name": "Default",
+                "px": "0",
+                "cols": "3"
+            },
+            {
+                "name": "Tablet",
+                "px": "576",
+                "cols": "6"
+            },
+            {
+                "name": "Small Desktop",
+                "px": "768",
+                "cols": "9"
+            },
+            {
+                "name": "Desktop",
+                "px": "1024",
+                "cols": "12"
+            }
+        ],
+        "className": "",
+        "visible": "true",
+        "disabled": "false"
+    },
+    {
+        "id": "ui_theme",
+        "type": "ui-theme",
+        "name": "Tema Vinícola",
+        "colors": {
+            "surface": "#ffffff",
+            "primary": "#6d4c41",
+            "bgPage": "#f5f0eb",
+            "groupBg": "#ffffff",
+            "groupOutline": "#c8b8b0"
+        }
+    },
+    {
+        "id": "fc484af8fc234781",
+        "type": "global-config",
+        "env": [],
+        "modules": {
+            "node-red-node-mysql": "3.0.0",
+            "@flowfuse/node-red-dashboard": "1.30.2"
+        }
     }
 ]
